@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>비용 계산 - 파일 업로드</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #F2F2F2;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            background-color: #49C2F2;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        form {
+            width: 400px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        img {
+            display: block;
+            margin: 0 auto; 
+            max-width: 60%; 
+            height: auto; 
+            margin-bottom: 20px; 
+        }
+        label {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: block;
+        }
+        
+        input[type="file"], input[type="submit"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        input[type="submit"] {
+            background-color: #49C2F2;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #49C2F2;
+        }
+    </style>
+</head>
+<body>
+    
+    <img src="{{ url_for('static', filename='images/속함.png') }}" alt="속함 로고">
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <label for="file">엑셀 파일 업로드:</label>
+        <input type="file" name="file" id="file" accept=".xlsx" required><br><br>
+        <input type="submit" value="업로드 후 계산하기">
+    </form>
+</body>
+</html>
