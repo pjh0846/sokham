@@ -14,11 +14,11 @@ app.config['ALLOWED_EXTENSIONS'] = {'xlsx'}
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
-    
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
-def calculate_yearly_cost(year, machine_costs, pogwal_salary=None, sonik_salary=None, jejo_salary=None, num=7000, avg_rate=0.03, avg_rate_after_2023=0.1):
+def calculate_yearly_cost(year, machine_costs, pogwal_salary=None, sonik_salary=None, jejo_salary=None, num=7700, avg_rate=0.03, avg_rate_after_2023=0.1):
     if pogwal_salary is None and (sonik_salary is None or jejo_salary is None):
         raise ValueError("pogwal_salary가 없으면 sonik_salary와 jejo_salary가 반드시 필요합니다.")
 
@@ -32,16 +32,17 @@ def calculate_yearly_cost(year, machine_costs, pogwal_salary=None, sonik_salary=
         salary_increase = max(0, (sonik_salary[year] + jejo_salary[year]) - (sonik_salary[prev_year] + jejo_salary[prev_year]))
 
     if year == 2019:
-        total = (machine_costs[year] - machine_costs[prev_year]) * 0.07
+        machine_cost_total = (machine_costs[year] - machine_costs[prev_year]) * 0.07
     elif year == 2020:
-        total = (machine_costs[year] - machine_costs[prev_year]) * 0.1
+        machine_cost_total = (machine_costs[year] - machine_costs[prev_year]) * 0.1
     elif year in [2021, 2022]:
-        total = (machine_costs[year] - machine_costs[prev_year]) * 0.1 + prev_3_year_avg * avg_rate
+        machine_cost_total = (machine_costs[year] - machine_costs[prev_year]) * 0.1 + (machine_costs[year] - prev_3_year_avg) * avg_rate
     else:  # year >= 2023
-        total = (machine_costs[year] - machine_costs[prev_year]) * 0.12 + prev_3_year_avg * avg_rate_after_2023
+        machine_cost_total = (machine_costs[year] - machine_costs[prev_year]) * 0.12 + (machine_costs[year] - prev_3_year_avg) * avg_rate_after_2023
 
-    total += math.floor(salary_increase / 40000) * num
-    return total
+    salary_adjustment = math.floor(salary_increase / 40000) * num
+    total = machine_cost_total + salary_adjustment
+    return machine_cost_total, salary_adjustment, total
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -58,6 +59,7 @@ def upload_file():
             return "파일이 선택되지 않았습니다.", 400
         if file and allowed_file(file.filename):
             filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+            
             file.save(filename)
             session['uploaded_file'] = filename
 
@@ -92,24 +94,44 @@ def calculate():
         pogwal_salary = None
 
     results = {}
+    total_machine_cost = 0
+    total_salary_adjustment = 0
+    total_cost = 0
 
     # 연도별 비용 계산
     for year in range(start_year, start_year + 5):
         try:
-            cost = calculate_yearly_cost(
+            machine_cost_total, salary_adjustment, total = calculate_yearly_cost(
                 year,
                 machine_costs=machine_costs,
                 pogwal_salary=pogwal_salary,
                 sonik_salary=sonik_salary,
                 jejo_salary=jejo_salary
             )
-            results[year] = round(cost, 1)
-        except KeyError as e:
-            results[year] = f"데이터가 없습니다: {e}"
-        except ValueError as e:
-            results[year] = f"계산 오류: {e}"
+            results[year] = {
+                "machine_cost_total": round(machine_cost_total),
+                "salary_adjustment": round(salary_adjustment),
+                "total": round(total),
+            }
 
-    return render_template('result.html', results=results, company_name=company_name, start_year=start_year)
+            # 총합 계산 (시작년도부터 5개년치)
+            total_machine_cost += machine_cost_total
+            total_salary_adjustment += salary_adjustment
+            total_cost += total
+
+        except KeyError as e:
+            results[year] = {"error": f"데이터가 없습니다: {e}"}
+        except ValueError as e:
+            results[year] = {"error": f"계산 오류: {e}"}
+
+    # 총합 결과를 추가
+    totals = {
+        "machine_cost_total": round(total_machine_cost),
+        "salary_adjustment": round(total_salary_adjustment),
+        "total": round(total_cost),
+    }
+
+    return render_template('result.html', results=results, totals=totals, company_name=company_name, start_year=start_year)
 
 
 if __name__ == '__main__':
