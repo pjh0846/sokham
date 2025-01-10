@@ -19,28 +19,35 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 def calculate_yearly_cost(year, machine_costs, pogwal_salary=None, sonik_salary=None, jejo_salary=None, num=7700, avg_rate=0.03, avg_rate_after_2023=0.1):
-    if pogwal_salary is None and (sonik_salary is None or jejo_salary is None):
-        raise ValueError("pogwal_salary가 없으면 sonik_salary와 jejo_salary가 반드시 필요합니다.")
-
+    if pogwal_salary is None and sonik_salary is None:
+        raise ValueError("pogwal_salary와 sonik_salary 중 하나는 반드시 필요합니다.")
+    
     prev_year = year - 1
     years_available = [year - i for i in range(1, 4) if (year - i) in machine_costs]
     prev_3_year_avg = sum(machine_costs[y] for y in years_available) / len(years_available) if years_available else 0
 
+    # 인원 계산
     if pogwal_salary is not None:
         salary_increase = max(0, pogwal_salary[year] - pogwal_salary[prev_year])
+    elif sonik_salary is not None or jejo_salary is not None:
+        sonik_increase = sonik_salary[year] - sonik_salary[prev_year] if sonik_salary else 0
+        jejo_increase = jejo_salary[year] - jejo_salary[prev_year] if jejo_salary else 0
+        salary_increase = max(0, sonik_increase + jejo_increase)
     else:
-        salary_increase = max(0, (sonik_salary[year] + jejo_salary[year]) - (sonik_salary[prev_year] + jejo_salary[prev_year]))
-
-    if year == 2019:
-        machine_cost_total = (machine_costs[year] - machine_costs[prev_year]) * 0.07
-    elif year == 2020:
-        machine_cost_total = (machine_costs[year] - machine_costs[prev_year]) * 0.1
-    elif year in [2021, 2022]:
-        machine_cost_total = (machine_costs[year] - machine_costs[prev_year]) * 0.1 + (machine_costs[year] - prev_3_year_avg) * avg_rate
-    else:  # year >= 2023
-        machine_cost_total = (machine_costs[year] - machine_costs[prev_year]) * 0.12 + (machine_costs[year] - prev_3_year_avg) * avg_rate_after_2023
+        salary_increase = 0
 
     salary_adjustment = math.floor(salary_increase / 40000) * num
+
+    # 기계장치 계산
+    if year == 2019:
+        machine_cost_total = (machine_costs.get(year, 0) - machine_costs.get(prev_year, 0)) * 0.07
+    elif year == 2020:
+        machine_cost_total = (machine_costs.get(year, 0) - machine_costs.get(prev_year, 0)) * 0.1
+    elif year in [2021, 2022]:
+        machine_cost_total = (machine_costs.get(year, 0) - machine_costs.get(prev_year, 0)) * 0.1 + (machine_costs.get(year, 0) - prev_3_year_avg) * avg_rate
+    else:  # year >= 2023
+        machine_cost_total = (machine_costs.get(year, 0) - machine_costs.get(prev_year, 0)) * 0.12 + (machine_costs.get(year, 0) - prev_3_year_avg) * avg_rate_after_2023
+
     total = machine_cost_total + salary_adjustment
     return machine_cost_total, salary_adjustment, total
 
@@ -73,6 +80,14 @@ def upload_file():
 
     return render_template('upload.html')
 
+#문자열 숫자변환
+
+def convert_to_numeric(value):
+    if isinstance(value, str):
+        return float(value.replace(',', '').strip())
+    return value
+
+
 @app.route('/calculate', methods=['POST'])
 def calculate():
     start_year = int(request.form['start_year'])
@@ -83,15 +98,65 @@ def calculate():
         return redirect(url_for('upload_file'))
     
     data = pd.read_excel(filename, sheet_name=company_name)
-    data = data.rename(columns={"Unnamed: 0": "Category"}).set_index("Category").transpose()
+    data = data.drop(columns=data.columns[0])
+    data = data.set_index(data.columns[0])
+    data = data.transpose()
 
-    machine_costs = {int(year): value for year, value in data["기계장치"].items() if not pd.isna(value)}
-    pogwal_salary = {int(year): value for year, value in data["포괄손익계산서"].items() if not pd.isna(value)}
-    sonik_salary = {int(year): value for year, value in data["손익계산서"].items() if not pd.isna(value)}
-    jejo_salary = {int(year): value for year, value in data["제조원가명세서"].items() if not pd.isna(value)}
+    machine_costs = {}
+    pogwal_salary = {}
+    sonik_salary = {}
+    jejo_salary = {}
 
-    if not pogwal_salary:  # 포괄손익계산서가 비어있을 경우
-        pogwal_salary = None
+    #로그확인
+    #print(data.head())  # 데이터 확인
+    #print(data.columns)  # 컬럼 확인
+
+    # 기계장치 데이터 처리
+    if "기계장치" in data.columns:
+        machine_costs = {
+            int(year.split('-')[0]) if isinstance(year, str) else year.year: convert_to_numeric(value)
+            for year, value in data["기계장치"].items() if not pd.isna(value)
+        }
+    else:
+        machine_costs = {}
+
+    # 종업원 급여비용 데이터 처리
+    if "종업원 급여비용" in data.columns:
+        pogwal_salary = {
+            int(year.split('-')[0]) if isinstance(year, str) else year.year: convert_to_numeric(value)
+            for year, value in data["종업원 급여비용"].items() if not pd.isna(value)
+        }
+    else:
+        pogwal_salary = {}
+
+    # 직원급여 데이터 처리
+    if "직원급여" in data.columns:
+        sonik_salary = {
+            int(year.split('-')[0]) if isinstance(year, str) else year.year: convert_to_numeric(value)
+            for year, value in data["직원급여"].items() if not pd.isna(value)
+        }
+    else:
+        sonik_salary = {}
+
+    # 급여 데이터 처리
+    if "급여" in data.columns:
+        jejo_salary = {
+            int(year.split('-')[0]) if isinstance(year, str) else year.year: convert_to_numeric(value)
+            for year, value in data["급여"].items() if not pd.isna(value)
+        }
+    else:
+        jejo_salary = {}
+
+    #로그 확인
+    #print("Machine Costs:", machine_costs)
+    #print("Pogwal Salary:", pogwal_salary)
+    #print("Sonik Salary:", sonik_salary)
+    #print("Jejo Salary:", jejo_salary)
+
+    if not pogwal_salary and not sonik_salary and not jejo_salary:
+        return "포괄 급여나 손익/제조 급여가 필요합니다.", 400
+    elif not pogwal_salary:
+        pogwal_salary = None  # 명시적으로 설정
 
     results = {}
     total_machine_cost = 0
