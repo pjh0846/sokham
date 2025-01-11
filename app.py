@@ -107,6 +107,8 @@ def calculate():
     data = data.set_index(data.columns[0])
     data = data.transpose()
 
+    data.fillna(0, inplace=True)
+
     machine_costs = {}
     pogwal_salary = {}
     sonik_salary = {}
