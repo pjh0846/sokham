@@ -81,9 +81,14 @@ def upload_file():
     return render_template('upload.html')
 
 #문자열 숫자변환
-
 def convert_to_numeric(value):
+    """
+    문자열을 숫자로 변환하고, -와 같은 특수문자는 NaN으로 처리
+    """
     if isinstance(value, str):
+        # 문자열에서 -를 NaN으로 처리
+        if value.strip() == '-' or value.strip() == '':
+            return float('nan')  # -를 NaN으로 처리
         return float(value.replace(',', '').strip())
     return value
 
