@@ -46,7 +46,9 @@ def calculate_yearly_cost(year, machine_costs, pogwal_salary=None, sonik_salary=
     elif year in [2021, 2022]:
         machine_cost_total = (machine_costs.get(year, 0) - machine_costs.get(prev_year, 0)) * 0.1 + (machine_costs.get(year, 0) - prev_3_year_avg) * avg_rate
     else:  # year >= 2023
-        machine_cost_total = (machine_costs.get(year, 0) - machine_costs.get(prev_year, 0)) * 0.12 + (machine_costs.get(year, 0) - prev_3_year_avg) * avg_rate_after_2023
+        prev_year_cost = (machine_costs.get(year, 0) - machine_costs.get(prev_year, 0)) * 0.12
+        adjusted_cost = (machine_costs.get(year, 0) - prev_3_year_avg) * avg_rate_after_2023
+        machine_cost_total = prev_year_cost + min(adjusted_cost, prev_year_cost * 2)
 
     total = machine_cost_total + salary_adjustment
     return machine_cost_total, salary_adjustment, total
@@ -70,14 +72,8 @@ def upload_file():
             file.save(filename)
             session['uploaded_file'] = filename
 
-            # 엑셀 파일을 읽어 데이터 로드
-            try:
-                data = pd.read_excel(filename, None)  # Read all sheets into a dictionary
-                sheet_names = data.keys()  # Get the sheet names
-                return render_template('company_select.html', sheet_names=sheet_names)
-            except Exception as e:
-                return f"엑셀 파일을 읽는 중 오류 발생: {e}" ,500
-
+            return redirect(url_for('calculate'))
+            
     return render_template('upload.html')
 
 #문자열 숫자변환
@@ -92,32 +88,42 @@ def convert_to_numeric(value):
         return float(value.replace(',', '').strip())
     return value
 
-
-@app.route('/calculate', methods=['POST'])
+@app.route('/calculate', methods=['GET', 'POST'])
 def calculate():
-    start_year = int(request.form['start_year'])
-    company_name = request.form['company_name']
-    
     filename = session.get('uploaded_file')
     if not filename:
         return redirect(url_for('upload_file'))
-    
-    data = pd.read_excel(filename, sheet_name=company_name)
-    data = data.drop(columns=data.columns[0])
-    data = data.set_index(data.columns[0])
-    data = data.transpose()
 
+    # 첫 번째 시트를 자동으로 선택
+    data = pd.read_excel(filename, sheet_name=0, header=0)
+    print(data)
+
+    if '계정명' in data.columns:
+        data = data.drop(columns=['계정명'])
+    # '항목'을 인덱스로 설정
+    if '항목' in data.columns:
+        data.set_index('항목', inplace=True)
+
+    # 데이터 전치 및 숫자로 변환
+    data = data.transpose()
     data.fillna(0, inplace=True)
+
+    # 결과 출력
+    print(data)
+
+    # 시작 연도
+    start_year = 2019
 
     machine_costs = {}
     pogwal_salary = {}
     sonik_salary = {}
     jejo_salary = {}
 
+
     #로그확인
     #print(data.head())  # 데이터 확인
     #print(data.columns)  # 컬럼 확인
-
+    
     # 기계장치 데이터 처리
     if "기계장치" in data.columns:
         machine_costs = {
@@ -202,7 +208,7 @@ def calculate():
         "salary_adjustment": round(total_salary_adjustment),
         "total": round(total_cost),
     }
-
+    company_name = os.path.splitext(os.path.basename(filename))[0]
     return render_template('result.html', results=results, totals=totals, company_name=company_name, start_year=start_year)
 
 
