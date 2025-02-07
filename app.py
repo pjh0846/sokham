@@ -98,11 +98,11 @@ def calculate():
     data = pd.read_excel(filename, sheet_name=0, header=0)
     print(data)
 
+    if 'tab' in data.columns:
+        data = data.drop(columns=['tab'])
+    
     if '계정명' in data.columns:
-        data = data.drop(columns=['계정명'])
-    # '항목'을 인덱스로 설정
-    if '항목' in data.columns:
-        data.set_index('항목', inplace=True)
+        data.set_index('계정명', inplace=True)
 
     # 데이터 전치 및 숫자로 변환
     data = data.transpose()
