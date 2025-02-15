@@ -535,6 +535,8 @@ def get_chrome_user_data_dir():
         return os.path.join(base_dir, "AppData", "Local", "Google", "Chrome", "User Data")
     elif system == "Darwin":  # macOS
         return os.path.join(base_dir, "Library", "Application Support", "Google", "Chrome")
+    elif system == "Linux":  # Linux
+        return os.path.join(base_dir, ".config", "google-chrome")
     else:
         raise NotImplementedError("이 운영 체제에서는 지원되지 않습니다.")
 
@@ -546,7 +548,7 @@ def get_copied_user_data_dir():
         return os.path.join(base_dir, "AppData", "Local", "Google", "Chrome_Selenium")
     elif system == "Darwin":  # macOS
         return os.path.join(base_dir, "Library", "Application Support", "Google", "Chrome_Selenium")
-    elif system == "Linux":  # Render는 Linux 기반
+    elif system == "Linux":  # Linux
         return os.path.join(base_dir, ".config", "google-chrome-selenium")
     else:
         raise NotImplementedError("이 운영 체제에서는 지원되지 않습니다.")
@@ -583,7 +585,7 @@ def run_selenium(username, password, search_key):
             options.add_argument("--profile-directory=Default")  # 특정 프로파일 중 default 사용
             options.add_argument("--headless")  # Headless 모드 활성화
             options.add_argument("--disable-autofill")
-
+            
 
             #driver 실행
             service = Service(ChromeDriverManager().install())
