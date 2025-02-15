@@ -847,6 +847,10 @@ def login():
     
     return render_template("index.html")
 
+@app.route('/selenium_status', methods=['GET'])
+def selenium_status():
+    status = session.get('selenium_running', False)  # 기본값은 False
+    return jsonify({"running": status})
 
 def calculate_yearly_cost(year, machine_costs, pogwal_salary=None, sonik_salary=None, jejo_salary=None, num=7700, avg_rate=0.03, avg_rate_after_2023=0.1):
     if pogwal_salary is None and sonik_salary is None:
