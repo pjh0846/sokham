@@ -824,13 +824,28 @@ def run_selenium(username, password, search_key):
             driver.quit()
         session['selenium_running'] = False  # 작업 완료 상태로 설정
        
-# 업로드 폴더 설정
-UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
+def get_desktop_path():
+    base_dir = os.path.expanduser("~")  # 사용자 홈 디렉토리 경로
+
+    system = platform.system()
+    if system == "Windows":
+        return os.path.join(base_dir, "Desktop")
+    elif system == "Darwin":  # macOS
+        return os.path.join(base_dir, "Desktop")
+    elif system == "Linux":  # Linux
+        return os.path.join(base_dir, "Desktop")
+    else:
+        raise NotImplementedError("이 운영 체제에서는 지원되지 않습니다.")
+    
+# 바탕화면에 upload 폴더 경로 설정
+desktop_path = get_desktop_path()
+UPLOAD_FOLDER = os.path.join(desktop_path, 'upload')
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['FILE_NAME'] = f'{search_text}.xlsx'  # 자동으로 사용할 파일 이름
 
 if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER)
+    os.makedirs(UPLOAD_FOLDER)
     
 
 
@@ -903,10 +918,11 @@ def convert_to_numeric(value):
 @app.route('/calculate', methods=['GET'])
 def calculate():
 
-    UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
-    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-    app.config['FILE_NAME'] = f'{search_text}.xlsx' 
+    desktop_path = get_desktop_path()
+    UPLOAD_FOLDER = os.path.join(desktop_path, 'upload')
 
+    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+    app.config['FILE_NAME'] = f'{search_text}.xlsx'
     
     filename = os.path.join(app.config['UPLOAD_FOLDER'], app.config['FILE_NAME'])
 
