@@ -16,9 +16,10 @@ import time
 import requests
 import platform
 import webbrowser
+import pickle
 
 
-def handle_popup(driver, popup_class="pop-alert", button_text="확인", wait_time=5):
+def handle_popup(driver, popup_class="pop-alert", button_text="확인", wait_time=20):
     """
     팝업 확인 및 버튼 클릭 함수.
 
@@ -526,7 +527,6 @@ def combine_df(total_df1, total_df2):
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-
 def get_chrome_user_data_dir():
     system = platform.system()
     base_dir = os.path.expanduser("~")
@@ -561,10 +561,10 @@ def setup_user_data():
         print("사용자 데이터 디렉토리 복사 중...")
         shutil.copytree(USER_DATA_DIR, COPIED_USER_DATA_DIR)
         print("복사 완료:", COPIED_USER_DATA_DIR)
-#else:
-    # shutil.rmtree(copied_user_data_dir)
-    # shutil.copytree(user_data_dir, copied_user_data_dir) 
-    # print("디렉토리 업데이트:", copied_user_data_dir)
+    else:
+        shutil.rmtree(COPIED_USER_DATA_DIR)
+        shutil.copytree(USER_DATA_DIR, COPIED_USER_DATA_DIR) 
+        print("디렉토리 업데이트:", COPIED_USER_DATA_DIR)
 
 # Selenium WebDriver 실행
 search_text =""
@@ -589,7 +589,6 @@ def run_selenium(username, password, search_key):
 
             #driver 실행
             service = Service(ChromeDriverManager().install())
-            #options.add_argument("--disable-blink-features=AutomationControlled")  # 자동화 감지 방지
             driver = webdriver.Chrome(service=service, options=options)
 
             total_df1 = pd.DataFrame()
@@ -613,7 +612,9 @@ def run_selenium(username, password, search_key):
                 print("로그인이 성공적으로 완료되었습니다!")
             else:
                 print("로그인에 실패했습니다.")
-                
+
+
+
             # 로그인 확인 버튼 닫기 _ 팝업 처리 함수 
             if handle_popup(driver):
                 print("팝업 처리가 완료되었습니다.")
