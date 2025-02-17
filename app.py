@@ -561,10 +561,10 @@ def setup_user_data():
         print("사용자 데이터 디렉토리 복사 중...")
         shutil.copytree(USER_DATA_DIR, COPIED_USER_DATA_DIR)
         print("복사 완료:", COPIED_USER_DATA_DIR)
-    else:
-        shutil.rmtree(COPIED_USER_DATA_DIR)
-        shutil.copytree(USER_DATA_DIR, COPIED_USER_DATA_DIR) 
-        print("디렉토리 업데이트:", COPIED_USER_DATA_DIR)
+    #else:
+    #    shutil.rmtree(COPIED_USER_DATA_DIR)
+    #    shutil.copytree(USER_DATA_DIR, COPIED_USER_DATA_DIR) 
+    #    print("디렉토리 업데이트:", COPIED_USER_DATA_DIR)
 
 # Selenium WebDriver 실행
 search_text =""
@@ -839,8 +839,7 @@ def get_desktop_path():
         raise NotImplementedError("이 운영 체제에서는 지원되지 않습니다.")
     
 # 바탕화면에 upload 폴더 경로 설정
-desktop_path = get_desktop_path()
-UPLOAD_FOLDER = os.path.join(desktop_path, 'upload')
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'upload')
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['FILE_NAME'] = f'{search_text}.xlsx'  # 자동으로 사용할 파일 이름
@@ -919,8 +918,7 @@ def convert_to_numeric(value):
 @app.route('/calculate', methods=['GET'])
 def calculate():
 
-    desktop_path = get_desktop_path()
-    UPLOAD_FOLDER = os.path.join(desktop_path, 'upload')
+    UPLOAD_FOLDER = os.path.join(os.getcwd(), 'upload')
 
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
     app.config['FILE_NAME'] = f'{search_text}.xlsx'
@@ -1003,10 +1001,12 @@ def calculate():
 
   # 웹 브라우저 자동 실행 함수
 def open_browser():
-    webbrowser.open("http://127.0.0.1:5000")  # 기본 페이지 자동 오픈
+    if os.environ.get('FLASK_ENV') == 'development':
+        webbrowser.open("http://127.0.0.1:5000")  # 기본 페이지 자동 오픈
 
 def open_browser2():
-    webbrowser.open("http://127.0.0.1:5000/calculate") 
+    if os.environ.get('FLASK_ENV') == 'development':
+        webbrowser.open("http://127.0.0.1:5000/calculate") 
 
 
 if __name__ == '__main__':
