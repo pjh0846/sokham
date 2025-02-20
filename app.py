@@ -562,7 +562,7 @@ def setup_user_data():
         shutil.copytree(USER_DATA_DIR, COPIED_USER_DATA_DIR)
         print("복사 완료:", COPIED_USER_DATA_DIR)
     #else:
-    #    shutil.rmtree(COPIED_USER_DATA_DIR)
+    #   shutil.rmtree(COPIED_USER_DATA_DIR)
     #    shutil.copytree(USER_DATA_DIR, COPIED_USER_DATA_DIR) 
     #    print("디렉토리 업데이트:", COPIED_USER_DATA_DIR)
 
@@ -583,7 +583,7 @@ def run_selenium(username, password, search_key):
             options.add_experimental_option("detach", True) # 화면 창 닫기 방지
             options.add_argument(f"user-data-dir={COPIED_USER_DATA_DIR}")  # 복사된 프로파일 경로 지정
             options.add_argument("--profile-directory=Default")  # 특정 프로파일 중 default 사용
-            options.add_argument("--headless")  # Headless 모드 활성화
+            #options.add_argument("--headless")  # Headless 모드 활성화
             options.add_argument("--disable-autofill")
             
 
@@ -1001,12 +1001,10 @@ def calculate():
 
   # 웹 브라우저 자동 실행 함수
 def open_browser():
-    if os.environ.get('FLASK_ENV') == 'development':
-        webbrowser.open("http://127.0.0.1:5000")  # 기본 페이지 자동 오픈
+    webbrowser.open("http://127.0.0.1:5000")  # 기본 페이지 자동 오픈
 
 def open_browser2():
-    if os.environ.get('FLASK_ENV') == 'development':
-        webbrowser.open("http://127.0.0.1:5000/calculate") 
+    webbrowser.open("http://127.0.0.1:5000/calculate") 
 
 
 if __name__ == '__main__':
