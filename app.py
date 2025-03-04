@@ -1,10 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, current_app
-import threading
 from selenium import webdriver
-import pandas as pd
-import shutil
-import os
-import math
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -12,15 +7,18 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import Select
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.keys import Keys
+from datetime import datetime
 import time
 import requests
 import platform
 import webbrowser
-from bs4 import BeautifulSoup
 import json
+import threading
+import pandas as pd
+import shutil
+import os
+import math
 import re
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-
 
 
 def handle_popup(driver, popup_class="pop-alert", button_text="확인", wait_time=5):
@@ -40,7 +38,7 @@ def handle_popup(driver, popup_class="pop-alert", button_text="확인", wait_tim
         
         # 팝업 요소 찾기
         popup = WebDriverWait(driver, wait_time).until(
-            EC.presence_of_element_located((By.CLASS_NAME, popup_class))
+            EC.element_to_be_clickable((By.CLASS_NAME, popup_class))
         )
         
         # 팝업 내부의 버튼 찾기
@@ -53,7 +51,7 @@ def handle_popup(driver, popup_class="pop-alert", button_text="확인", wait_tim
         print(f"❌ 팝업 처리 실패: {e}")
         return False
 
-def login_to_site(driver, username, password, login_button_class="header-login-idcr", username_field_id="idModel", password_field_id="pwModel", submit_button_class="btn-login", user_confirm_class="user-nm", wait_time=3):
+def login_to_site(driver, username, password, login_button_class="header-login-idcr", username_field_id="idModel", password_field_id="pwModel", submit_button_class="btn-login", user_confirm_class="user-nm", wait_time=10):
     """
     사이트 로그인 함수.
 
@@ -79,10 +77,9 @@ def login_to_site(driver, username, password, login_button_class="header-login-i
         )
         login_button.click()
 
-        print("✅ 로그인 필드 로드 대기")
         # 사용자 아이디 및 비밀번호 필드 대기
         username_field = WebDriverWait(driver, wait_time).until(
-            EC.presence_of_element_located((By.ID, username_field_id))
+            EC.element_to_be_clickable((By.ID, username_field_id))
         )
         password_field = driver.find_element(By.ID, password_field_id)
 
@@ -101,16 +98,36 @@ def login_to_site(driver, username, password, login_button_class="header-login-i
         submit_button.click()
         print("🔍 로그인 버튼 클릭 중...")
 
+        try:
+            error_element = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".pop-area"))
+            )
+            error_text = error_element.get_attribute("class")
+            
+            with open(UPDATE_TRACKER_FILE, "w") as file:
+                file.write("")
+
+            if "PLIL140P5" in error_text:
+                print("🚫 동일한 아이디로 다른 디바이스에서 로그인 중입니다. 다른 기기에서 로그아웃해주세요.")
+                return False
+            elif "PLIL140P4" in error_text:
+                print("🚫 접속기기가 변경되었습니다. 크롬을 열어 크레탑 본인인증 후 앱을 재사용해주세요.")
+                return False
+        except:
+            print("로그인 오류 팝업 없음")
+            
         # 로그인 성공 확인
         WebDriverWait(driver, wait_time).until(
             EC.presence_of_element_located((By.CLASS_NAME, user_confirm_class))
         )
         print("✅ 로그인 성공!")
+        time.sleep(1)
         return True
 
     except Exception as e:
         print(f"❌ 로그인 실패: {e}")
-        return False
+        driver.quit()
+        os._exit(0)
 
 def click_button_by_text(driver, button_text):
     """
@@ -133,22 +150,9 @@ def click_button_by_text(driver, button_text):
         print(f"'{button_text}' 버튼 클릭 완료")
     except Exception as e:
         print(f"'{button_text}' 버튼 클릭 실패: {e}")
-
-def extract_table_headers(driver, table_selector):
-    try:
-         # 테이블 요소 찾기
-        table_element = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, table_selector))
-        )
-        # 테이블 헤더(날짜 등) 추출
-        header_row = table_element.find_elements(By.CSS_SELECTOR, "thead tr th")
-        headers = [th.find_element(By.TAG_NAME, "span").text.strip()for th in header_row if th.find_element(By.TAG_NAME, "span").text.strip()]
-        print("Headers:", headers)
-        return headers  # 성공 시 헤더 반환
-    except Exception as e:
-        print(f"테이블 헤더 추출 중 오류 발생")
-        return None
-    
+        driver.quit()
+        os._exit(0)
+  
 def navigate_to_financial_page(driver, search_key, wait_time=10):
     """
     특정 검색어로 기업을 검색하고, 해당 기업의 재무 페이지로 이동하는 함수.
@@ -157,7 +161,7 @@ def navigate_to_financial_page(driver, search_key, wait_time=10):
     try:
         # 검색 필드 요소 찾기
         search_input = WebDriverWait(driver, wait_time).until(
-            EC.presence_of_element_located((By.XPATH, "//input[@placeholder='검색어를 입력해주세요.']"))
+            EC.element_to_be_clickable((By.XPATH, "//input[@placeholder='검색어를 입력해주세요.']"))
         )
         
         # 검색어 입력
@@ -174,6 +178,8 @@ def navigate_to_financial_page(driver, search_key, wait_time=10):
 
     except Exception as e:
         print(f"❌ 검색 단계 실패: {e}")
+        driver.quit()
+        os._exit(0)
         return False
 
             
@@ -183,12 +189,10 @@ def navigate_to_financial_page(driver, search_key, wait_time=10):
 
     while True:
         try:
-            # 기업명으로 찾기
-            name_xpath = f"//*[@id='et-area']/div/div[2]/ul/li[{li_index}]/div/button/span"
             # 사업자번호로 찾기
             code_xpath = f"//*[@id='et-area']/div/div[2]/ul/li[{li_index}]/div/ul[1]/li[4]/span[2]"
             span_element = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, code_xpath))
+                EC.element_to_be_clickable((By.XPATH, code_xpath))
             )
             
             # 찾은 텍스트와 검색어 비교
@@ -201,6 +205,8 @@ def navigate_to_financial_page(driver, search_key, wait_time=10):
 
         except Exception as e:
             print(f"❌ 찾을 수 있는 항목이 없습니다. (오류: {e})")
+            driver.quit()
+            os._exit(0)
             break
             
     # 일치하는 항목이 있으면 "재무페이지로 이동하기" 클릭
@@ -212,6 +218,185 @@ def navigate_to_financial_page(driver, search_key, wait_time=10):
         return 1
     else:
         print("재무페이지 이동 실패")
+        driver.quit()
+        os._exit(0)
+
+def get_kedcd(driver): 
+    # ✅ DevTools 로그에서 네트워크 요청 가져오기
+    logs = driver.get_log("performance")
+
+    # `request.json` 요청을 추적하여 `requestId` 저장
+    request_id_map = {}
+
+    for log in logs:
+        try:
+            log_json = json.loads(log["message"])  
+            method = log_json["message"].get("method", "")
+
+            # 네트워크 요청이 비동기 처리되거나 fetch()로 이루어진 경우, responseReceived에서만 확인 가능
+            if method == "Network.responseReceived":
+                request_id = log_json["message"]["params"]["requestId"]
+                request_id_map[request_id] = log_json["message"]["params"]
+        except (json.JSONDecodeError, KeyError):
+            continue
+    # ✅ 가장 최신 requestId만 사용
+    if not request_id_map:
+        print("❌ `requestId`를 찾지 못했습니다.")
+        driver.quit()
+        os._exit(0)
+
+    request_ids = list(request_id_map.keys())[::-1]  # 최신 requestId부터 선택
+
+    # ✅ `Network.getResponseBody`로 응답 데이터 가져오기 (한 개만 실행)
+    while request_ids:  # ✅ request_ids가 남아있는 동안 반복
+            last_request_id = request_ids.pop(0)  # ✅ 가장 최신 requestId 선택
+            print(f"✅ 시도 중인 `requestId`: {last_request_id}")
+
+            try:
+                time.sleep(1)  # 요청 처리 대기 (빠른 응답 사라짐 방지)
+
+                response_body = driver.execute_cdp_cmd("Network.getResponseBody", {"requestId": last_request_id})
+
+                # 응답이 비어있는 경우 제외
+                if not response_body or not response_body.get("body"):
+                    print(f"`{last_request_id}` 응답이 비어 있음")
+                    continue 
+
+                payload = json.loads(response_body["body"])  
+
+                kedcd = payload.get("header", {}).get("kedcd")
+                if kedcd:
+                    print(f"✅ `kedcd` 값 찾음: {kedcd}")
+                    return kedcd  
+    
+            except (json.JSONDecodeError, KeyError, Exception) as e:
+                print(f"❌ {last_request_id} 응답 가져오기 실패: {e}")
+    driver.quit()
+    os._exit(0)
+
+target_tabs = {
+    "재무상태표": {"accNmEng": "         Machinery and Equipment", "fsCcd": "1", "fsCls": "2"},
+    "포괄손익계산서": {"accNmEng": "   Employee benefits Expenses", "fsCcd": "2", "fsCls": "1"},
+    "손익계산서": {"accNmEng": "      Employee Salaries and Wages", "fsCcd": "2", "fsCls": "2"},
+    "법인세비용차감전순손익" :  {"accNmEng": "(Ongoing Business) Income or Loss Before Income Taxes Expenses", "fsCcd": "2", "fsCls": "2"},
+    "법인세비용" :  {"accNmEng": "Income Taxes Expenses (For Ongoing Business Income or Loss)", "fsCcd": "2", "fsCls": "2"},
+    "제조원가명세서": {"accNmEng": "      Salaries and Wages", "fsCcd": "5", "fsCls": "2"}
+}
+
+def get_tabs_values(driver, username, kedcd, session, years):
+
+    headers = {
+    'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+    'Referer': driver.current_url,
+    'Origin': 'https://www.cretop.com',
+    'Content-Type': 'application/json'
+}
+    url = 'https://www.cretop.com/httpService/request.json'
+
+    values_list = []
+    cookies = driver.get_cookies()
+    for cookie in cookies:
+        session.cookies.set(cookie['name'], cookie['value'])
+
+    # ✅ 탭 리스트 가져오기
+    tabs = driver.find_elements(By.CSS_SELECTOR, "ul.tab-group-ul > li > a")
+    existing_tabs = {tab.text.strip() for tab in tabs}
+
+    missing_tabs = set(target_tabs.keys()) - existing_tabs
+    all_tabs = set(target_tabs.keys())
+
+    # ✅ '포괄손익계산서'가 없을 경우만 특정 탭 조정 (
+    if "포괄손익계산서" in missing_tabs:
+        all_tabs.discard("포괄손익계산서")
+        values = ["포괄손익계산서"] +  [ None for _ in range(1, 7)]
+        values_list.append(values)
+        all_tabs
+    else: 
+        all_tabs.discard("손익계산서")
+        values = ["손익계산서"] +  [ None for _ in range(1, 7)]
+        values_list.append(values)
+        all_tabs.discard("제조원가명세서")
+        values = ["제조원가명세서"] +  [ None for _ in range(1, 7)]
+        values_list.append(values)
+        all_tabs.discard("법인세비용차감순손익")
+        values = ["법인세비용차감순손익"] +  [ None for _ in range(1, 7)]
+        values_list.append(values)
+        all_tabs.discard("법인세비용")
+        values = ["법인세비용"] +  [ None for _ in range(1, 7)]
+        values_list.append(values)
+        
+
+    for tab_name in all_tabs:
+        # ✅ 해당 탭의 fsCcd, fsCls 및 accNmEng 가져오기
+        tab_data = target_tabs[tab_name]
+        accNmEng = tab_data["accNmEng"]
+        fsCcd = tab_data["fsCcd"]
+        fsCls = tab_data["fsCls"]
+        if (years == 2022):
+            acctDt = "20221231"
+        else:
+            acctDt = "20231231"
+
+        # ✅ 요청 데이터 생성 
+        data = {
+            "header": {
+                "trxCd": "ETFI1122R",
+                "sysCd": "",
+                "chlType": "02",
+                "userId": username.upper(),
+                "screenId": "ETFI112S2",
+                "menuId": "01W0000777",
+                "langCd": "ko",
+                "bzno": "",
+                "conoPid": "",
+                "kedcd": kedcd,
+                "indCd": "",
+                "franMngNo": "",
+                "ctrNo": "",
+                "bzcCd": "",
+                "infoOfrStpgeYn": "",
+                "pageNum": 0,
+                "pageCount": 0,
+                "pndNo": ""
+            },
+            "ETFI1122R": {
+                "kedcd": kedcd,
+                "acctCcd": "Y",
+                "acctDt": acctDt,
+                "fsCcd": fsCcd,  
+                "fsCls": fsCls,  
+                "chk": "1",
+                "smryYn": "N",
+                "srchCls": "5"
+            }
+        }
+
+        # ✅ API 요청 보내기
+        response = session.post(url, json=data, headers=headers)
+        response_text = response.text
+
+        accNmEng = re.escape(accNmEng)
+        normalized_accNmEng = " ".join(tab_data["accNmEng"].split())
+        pattern = fr'\{{[^}}]*"accNmEng"\s*:\s*".*?{accNmEng}.*?"[^}}]*\}}'
+
+        matches = re.findall(pattern, response_text)
+
+        if matches:
+            for match in matches:
+                print(match)
+                match_data = json.loads(match) 
+                values = [tab_name] + [years] + [match_data.get(f'val{i}') for i in range(1, 6)]
+                values_list.append(values)
+
+            print(f"✅ {tab_name} ({normalized_accNmEng}): {values_list[-1]}")
+            continue
+
+        else:
+            values = [tab_name] +  [ None for _ in range(1, 7)]
+            values_list.append(values)
+            print(f"❌ {tab_name} 데이터를 찾을 수 없습니다.")
+
+    return values_list if values_list else None  
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -244,28 +429,46 @@ def get_copied_user_data_dir():
 
 USER_DATA_DIR = get_chrome_user_data_dir()
 COPIED_USER_DATA_DIR = get_copied_user_data_dir()
+UPDATE_TRACKER_FILE = "last_update.txt"
 
 def setup_user_data():
-    if not os.path.exists(COPIED_USER_DATA_DIR):
-        print("사용자 데이터 디렉토리 복사 중...")
-        shutil.copytree(USER_DATA_DIR, COPIED_USER_DATA_DIR)
-        print("복사 완료:", COPIED_USER_DATA_DIR)
-    #else:
-    #    shutil.rmtree(COPIED_USER_DATA_DIR)
-    #    shutil.copytree(USER_DATA_DIR, COPIED_USER_DATA_DIR) 
-    #    print("디렉토리 업데이트:", COPIED_USER_DATA_DIR)
+    today = datetime.today().strftime("%Y-%m-%d")
+    if os.path.exists(UPDATE_TRACKER_FILE):
+        with open(UPDATE_TRACKER_FILE, "r") as file:
+            last_update = file.read().strip()  #  마지막 업데이트 날짜 읽기
+    else:
+        last_update = None  # 업데이트 기록이 없으면 None 처리
 
-# Selenium WebDriver 실행
+    # 디렉토리 존재 여부 확인 + 날짜 비교 후 업데이트 여부 결정
+    if not os.path.exists(COPIED_USER_DATA_DIR) or last_update != today: 
+        print("사용자 데이터 디렉토리 업데이트 중...")
+        os.system("taskkill /IM chrome.exe /F") # 윈도우 크롬 강제종료 코드 (하루에 한 번만 실행됨)
+        if os.path.exists(COPIED_USER_DATA_DIR):
+            shutil.rmtree(COPIED_USER_DATA_DIR)
+        shutil.copytree(USER_DATA_DIR, COPIED_USER_DATA_DIR)
+        print("디렉토리 복사 완료:", COPIED_USER_DATA_DIR)
+        
+        with open(UPDATE_TRACKER_FILE, "w") as file:
+            file.write(today)
+    else: 
+        print(" 기존 디렉토리 사용.")
+
 search_text =""
 selenium_running = False
+kedcd = ""
+value_2023 = []
+value_2022 = []
 machine = []
 sonik =[]
 jejo = []
 pogwal = []
+before_loss = []
+taxes = []
 
 def run_selenium(username, password, search_key):
     driver = None
-    
+    global search_text, kedcd, value_2022, value_2023, machine, sonik, jejo, pogwal,before_loss, taxes
+
     try:
         with app.test_request_context():
 
@@ -278,10 +481,10 @@ def run_selenium(username, password, search_key):
             options.add_argument("--profile-directory=Default")  # 특정 프로파일 중 default 사용
             options.add_argument("--headless")  # Headless 모드 활성화
             options.add_argument("--disable-autofill")
-            options.add_argument("--disable-gpu")
             options.add_argument("--no-sandbox")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-dev-shm-usage")
             options.set_capability("goog:loggingPrefs", {"performance": "ALL"})  # DevTools 네트워크 로깅 활성화
-            
 
             #driver 실행
             service = Service(ChromeDriverManager().install())
@@ -290,44 +493,39 @@ def run_selenium(username, password, search_key):
             # 사이트 이동 및 기업의 재무 페이지로 이동
             driver.get("https://www.cretop.com")
             driver.maximize_window()
-            driver.execute_script("document.body.style.zoom='50%'")
+            driver.execute_script("document.body.style.zoom='100%'")
             print("사이트 접속 완료")
-            driver.implicitly_wait(1)
+            time.sleep(1)
 
             # 팝업 처리 
-            if handle_popup(driver, popup_class="slot__right", button_text="[닫기]"):
+            if handle_popup(driver, popup_class="check-close__footer", button_text="[닫기]"):
                 print("팝업 처리가 완료되었습니다.")
             else:
                 print("팝업 처리가 실패했습니다.")
 
-            if login_to_site(driver, username, password):
-                
-                print("로그인이 성공적으로 완료되었습니다!")
+            if driver.find_elements(By.CSS_SELECTOR, ".login-after"):
+                print("로그인 중입니다.")
             else:
-                print("로그인에 실패했습니다.")
+                if login_to_site(driver, username, password):
+                    print("로그인이 성공적으로 완료되었습니다!")
+                else:
+                    print("로그인에 실패했습니다.")
+                    driver.quit()
+                    os._exit(0)
 
-            
-            # 로그인 확인 버튼 닫기 _ 팝업 처리 함수 
-            if handle_popup(driver):
-                print("팝업 처리가 완료되었습니다.")
-            else:
-                print("팝업 처리가 실패했습니다.")
+                # 로그인 확인 버튼 닫기 _ 팝업 처리 함수 
+                if handle_popup(driver):
+                    print("팝업 처리가 완료되었습니다.")
+                else:
+                    print("팝업 처리가 실패했습니다.")
 
-            time.sleep(1)
+                time.sleep(1)
            
-            s = requests.Session()
-            headers = {
-                'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-                'Referer': driver.current_url,
-                'Origin': 'https://www.cretop.com',
-                'Content-Type': 'application/json'
-            }
-            s.headers.update(headers)
+            session = requests.Session()
+
             for cookie in driver.get_cookies():
                 c = {cookie['name'] : cookie['value']}
-                s.cookies.update(c)
-                       
-            global search_text, machine, sonik, jejo, pogwal
+                session.cookies.update(c)    
 
             if navigate_to_financial_page(driver, search_key):
                 print(f"🚀 '{search_key}'의 재무 페이지로 성공적으로 이동했습니다.")
@@ -338,600 +536,75 @@ def run_selenium(username, password, search_key):
                 print(search_text)              
             else:
                 print(f"❌ '{search_key}'의 재무 페이지로 이동 실패.")
-
+                driver.quit()
+                os._exit(0)
 
             driver.execute_cdp_cmd("Network.enable", {})
-            # :white_check_mark: DevTools 로그에서 네트워크 요청 가져오기
-            logs = driver.get_log("performance")
+            kedcd = get_kedcd(driver)
 
-            # `request.json` 요청을 추적하여 `requestId` 저장
-            request_id_map = {}
-
-            for log in logs:
-                try:
-                    log_json = json.loads(log["message"])  # :white_check_mark: JSON 변환
-                    method = log_json["message"].get("method", "")
-
-                    # 네트워크 요청이 비동기 처리되거나 fetch()로 이루어진 경우, responseReceived에서만 확인 가능
-                    if method == "Network.responseReceived":
-                        request_id = log_json["message"]["params"]["requestId"]
-                        request_id_map[request_id] = log_json["message"]["params"]
-                except (json.JSONDecodeError, KeyError):
-                    continue
-            # :white_check_mark: 가장 최신 requestId만 사용
-            if not request_id_map:
-                print(":x: `requestId`를 찾지 못했습니다.")
-                driver.quit()
-                exit()
-
-            last_request_id = list(request_id_map.keys())[-1]  # :white_check_mark: 가장 마지막 requestId 선택
-
-            # :white_check_mark: `Network.getResponseBody`로 응답 데이터 가져오기 (한 개만 실행)
-            try:
-                time.sleep(1)  # :white_check_mark: 요청 처리 대기 (빠른 응답 사라짐 방지)
-                
-                response_body = driver.execute_cdp_cmd("Network.getResponseBody", {"requestId": last_request_id})
-
-                # :white_check_mark: 응답이 비어있는 경우 제외
-                if not response_body or not response_body.get("body"):
-                    print(f"{last_request_id} 응답이 비어 있음")
-                else:
-                    payload = json.loads(response_body["body"])  # :white_check_mark: 응답 데이터를 JSON 변환
-
-                    # :white_check_mark: `kedcd` 값 추출
-                    kedcd = payload.get("header", {}).get("kedcd")
-                    if kedcd:
-                        print(f"kedcd 값 : {kedcd}")
-
-            except (json.JSONDecodeError, KeyError, Exception) as e:
-                print(f":x: {last_request_id} 응답 가져오기 실패: {e}")
-
-
-            # Chrome 종료
-            #driver.quit()
+            value_2023 = get_tabs_values(driver, username, kedcd, session, 2023)
+            value_2022 = get_tabs_values(driver, username, kedcd, session, 2022)
             
-            #기계장치(2019~2023)
-            data = {
-                "header": {
-                    "trxCd": "ETFI1122R",
-                    "sysCd": "",
-                    "chlType": "02",
-                    "userId": username.upper(),
-                    "screenId": "ETFI112S2",
-                    "menuId": "01W0000777",
-                    "langCd": "ko",
-                    "bzno": "",
-                    "conoPid": "",
-                    "kedcd": kedcd,
-                    "indCd": "",
-                    "franMngNo": "",
-                    "ctrNo": "",
-                    "bzcCd": "",
-                    "infoOfrStpgeYn": "",
-                    "pageNum": 0,
-                    "pageCount": 0,
-                    "pndNo": ""
-                },
-                "ETFI1122R": {
-                    "kedcd": kedcd,
-                    "acctCcd": "Y",
-                    "acctDt": "20231231",
-                    "fsCcd": "1",
-                    "fsCls": "2",
-                    "chk": "1",
-                    "smryYn": "N",
-                    "srchCls": "5"
-                }
-            }
-
-
-            url = 'https://www.cretop.com/httpService/request.json'
+            for row, row_2022 in zip(value_2023, value_2022): # value_2023에 2018 값 삽입
+                row[1] = row_2022[2]
             
-            
-            response = s.post(url, json=data, headers=headers)
+            for tab in value_2023:
+                print(tab)
 
-            response_text = response.text
-            pattern = r'\{[^}]*"accNmEng"\s*:\s*"         Machinery and Equipment"[^}]*\}'
-            # 정규 표현식으로 매칭된 모든 부분 찾기
-            matches = re.findall(pattern, response_text)
-            if matches:
-                # 추출된 match에서 val1, val2, val3, val4, val5만 리스트로 추출
-                for match in matches:
-                    # JSON으로 파싱
-                    match_data = json.loads(match)  # 'null'을 Python의 None으로 변환
+            for row in value_2023:
+                if row[0] == "포괄손익계산서":
+                    pogwal = row[1:7] 
+                elif row[0] == "손익계산서":
+                    sonik = row[1:7] 
+                elif row[0] == "제조원가명세서":
+                    jejo = row[1:7] 
+                elif row[0] == "재무상태표":
+                    machine = row[1:7]
+                elif row[0] == "법인세비용차감전순손익":
+                    before_loss = row[1:7]
+                elif row[0] == "법인세비용":
+                    taxes = row[1:7]
 
-                    # 원하는 값들만 리스트로 추출
-                    values1 = [
-                        match_data.get('val1'),
-                        match_data.get('val2'),
-                        match_data.get('val3'),
-                        match_data.get('val4'),
-                        match_data.get('val5')
-                    ]
-                    #print("기계장치(2019~2023):", values1)
-            else:
-                print("해당 데이터를 찾을 수 없습니다.")
-                values1 = []
-
-            #기계장치(2018~2022)
-            data = {
-                "header": {
-                    "trxCd": "ETFI1122R",
-                    "sysCd": "",
-                    "chlType": "02",
-                    "userId": username.upper(),
-                    "screenId": "ETFI112S2",
-                    "menuId": "01W0000777",
-                    "langCd": "ko",
-                    "bzno": "",
-                    "conoPid": "",
-                    "kedcd": kedcd,
-                    "indCd": "",
-                    "franMngNo": "",
-                    "ctrNo": "",
-                    "bzcCd": "",
-                    "infoOfrStpgeYn": "",
-                    "pageNum": 0,
-                    "pageCount": 0,
-                    "pndNo": ""
-                },
-                "ETFI1122R": {
-                    "kedcd": kedcd,
-                    "acctCcd": "Y",
-                    "acctDt": "20221231",
-                    "fsCcd": "1",
-                    "fsCls": "2",
-                    "chk": "1",
-                    "smryYn": "N",
-                    "srchCls": "5"
-                }
-            }
-
-
-            url = 'https://www.cretop.com/httpService/request.json'
-            
-            
-            response = s.post(url, json=data, headers=headers)
-
-            response_text = response.text
-            pattern = r'\{[^}]*"accNmEng"\s*:\s*"         Machinery and Equipment"[^}]*\}'
-            # 정규 표현식으로 매칭된 모든 부분 찾기
-            matches = re.findall(pattern, response_text)
-            if matches:
-                # 추출된 match에서 val1, val2, val3, val4, val5만 리스트로 추출
-                for match in matches:
-                    # JSON으로 파싱
-                    match_data = json.loads(match)  # 'null'을 Python의 None으로 변환
-
-                    # 원하는 값들만 리스트로 추출
-                    values2 = [
-                        match_data.get('val1'),
-                        match_data.get('val2'),
-                        match_data.get('val3'),
-                        match_data.get('val4'),
-                        match_data.get('val5')
-                    ]
-                    #print("기계장치(2018~2022):", values2)
-            else:
-                print("해당 데이터를 찾을 수 없습니다.")
-                values2 = []
-                     
-            #손익계산서(2019~2023)
-            data = {
-                "header": {
-                    "trxCd": "ETFI1122R",
-                    "sysCd": "",
-                    "chlType": "02",
-                    "userId": username.upper(),
-                    "screenId": "ETFI112S2",
-                    "menuId": "01W0000777",
-                    "langCd": "ko",
-                    "bzno": "",
-                    "conoPid": "",
-                    "kedcd": kedcd,
-                    "indCd": "",
-                    "franMngNo": "",
-                    "ctrNo": "",
-                    "bzcCd": "",
-                    "infoOfrStpgeYn": "",
-                    "pageNum": 0,
-                    "pageCount": 0,
-                    "pndNo": ""
-                },
-                "ETFI1122R": {
-                    "kedcd": kedcd,
-                    "acctCcd": "Y",
-                    "acctDt": "20231231",
-                    "fsCcd": "2",
-                    "fsCls": "2",
-                    "chk": "1",
-                    "smryYn": "N",
-                    "srchCls": "5"
-                }
-            }
-
-
-            url = 'https://www.cretop.com/httpService/request.json'
-            
-            
-            response = s.post(url, json=data, headers=headers)
-
-            response_text = response.text
-            pattern = r'\{[^}]*"accNmEng"\s*:\s*"      Employee Salaries and Wages"[^}]*\}'
-            # 정규 표현식으로 매칭된 모든 부분 찾기
-            matches = re.findall(pattern, response_text)
-            if matches:
-                # 추출된 match에서 val1, val2, val3, val4, val5만 리스트로 추출
-                for match in matches:
-                    # JSON으로 파싱
-                    match_data = json.loads(match)  # 'null'을 Python의 None으로 변환
-
-                    # 원하는 값들만 리스트로 추출
-                    values3 = [
-                        match_data.get('val1'),
-                        match_data.get('val2'),
-                        match_data.get('val3'),
-                        match_data.get('val4'),
-                        match_data.get('val5')
-                    ]
-                    #print("손익계산서(2019~2023):", values3)
-            else:
-                print("해당 데이터를 찾을 수 없습니다.")
-                values3 = []
-
-            #손익계산서(2018~2022)
-            data = {
-                "header": {
-                    "trxCd": "ETFI1122R",
-                    "sysCd": "",
-                    "chlType": "02",
-                    "userId": username.upper(),
-                    "screenId": "ETFI112S2",
-                    "menuId": "01W0000777",
-                    "langCd": "ko",
-                    "bzno": "",
-                    "conoPid": "",
-                    "kedcd": kedcd,
-                    "indCd": "",
-                    "franMngNo": "",
-                    "ctrNo": "",
-                    "bzcCd": "",
-                    "infoOfrStpgeYn": "",
-                    "pageNum": 0,
-                    "pageCount": 0,
-                    "pndNo": ""
-                },
-                "ETFI1122R": {
-                    "kedcd": kedcd,
-                    "acctCcd": "Y",
-                    "acctDt": "20221231",
-                    "fsCcd": "2",
-                    "fsCls": "2",
-                    "chk": "1",
-                    "smryYn": "N",
-                    "srchCls": "5"
-                }
-            }
-
-
-            url = 'https://www.cretop.com/httpService/request.json'
-            
-            
-            response = s.post(url, json=data, headers=headers)
-
-            response_text = response.text
-            pattern = r'\{[^}]*"accNmEng"\s*:\s*"      Employee Salaries and Wages"[^}]*\}'
-            # 정규 표현식으로 매칭된 모든 부분 찾기
-            matches = re.findall(pattern, response_text)
-            if matches:
-                # 추출된 match에서 val1, val2, val3, val4, val5만 리스트로 추출
-                for match in matches:
-                    # JSON으로 파싱
-                    match_data = json.loads(match)  # 'null'을 Python의 None으로 변환
-
-                    # 원하는 값들만 리스트로 추출
-                    values4 = [
-                        match_data.get('val1'),
-                        match_data.get('val2'),
-                        match_data.get('val3'),
-                        match_data.get('val4'),
-                        match_data.get('val5')
-                    ]
-                    #print("손익계산서(2018~2022):", values4)
-            else:
-                print("해당 데이터를 찾을 수 없습니다.")
-                values4 = []
-
-            #제조원가명세서(2019~2023)
-            data = {
-                "header": {
-                    "trxCd": "ETFI1122R",
-                    "sysCd": "",
-                    "chlType": "02",
-                    "userId": username.upper(),
-                    "screenId": "ETFI112S2",
-                    "menuId": "01W0000777",
-                    "langCd": "ko",
-                    "bzno": "",
-                    "conoPid": "",
-                    "kedcd": kedcd,
-                    "indCd": "",
-                    "franMngNo": "",
-                    "ctrNo": "",
-                    "bzcCd": "",
-                    "infoOfrStpgeYn": "",
-                    "pageNum": 0,
-                    "pageCount": 0,
-                    "pndNo": ""
-                },
-                "ETFI1122R": {
-                    "kedcd": kedcd,
-                    "acctCcd": "Y",
-                    "acctDt": "20231231",
-                    "fsCcd": "5",
-                    "fsCls": "2",
-                    "chk": "1",
-                    "smryYn": "N",
-                    "srchCls": "5"
-                }
-            }
-
-
-            url = 'https://www.cretop.com/httpService/request.json'
-            
-            
-            response = s.post(url, json=data, headers=headers)
-
-            response_text = response.text
-            pattern = r'\{[^}]*"accNmEng"\s*:\s*"      Salaries and Wages"[^}]*\}'
-            # 정규 표현식으로 매칭된 모든 부분 찾기
-            matches = re.findall(pattern, response_text)
-            if matches:
-                # 추출된 match에서 val1, val2, val3, val4, val5만 리스트로 추출
-                for match in matches:
-                    # JSON으로 파싱
-                    match_data = json.loads(match)  # 'null'을 Python의 None으로 변환
-
-                    # 원하는 값들만 리스트로 추출
-                    values5 = [
-                        match_data.get('val1'),
-                        match_data.get('val2'),
-                        match_data.get('val3'),
-                        match_data.get('val4'),
-                        match_data.get('val5')
-                    ]
-                    #print("제조원가명세서(2019~2023):", values5)
-            else:
-                print("해당 데이터를 찾을 수 없습니다.")
-                values5 = []
-
-            #제조원가명세서(2018~2022)
-            data = {
-                "header": {
-                    "trxCd": "ETFI1122R",
-                    "sysCd": "",
-                    "chlType": "02",
-                    "userId": username.upper(),
-                    "screenId": "ETFI112S2",
-                    "menuId": "01W0000777",
-                    "langCd": "ko",
-                    "bzno": "",
-                    "conoPid": "",
-                    "kedcd": kedcd,
-                    "indCd": "",
-                    "franMngNo": "",
-                    "ctrNo": "",
-                    "bzcCd": "",
-                    "infoOfrStpgeYn": "",
-                    "pageNum": 0,
-                    "pageCount": 0,
-                    "pndNo": ""
-                },
-                "ETFI1122R": {
-                    "kedcd": kedcd,
-                    "acctCcd": "Y",
-                    "acctDt": "20221231",
-                    "fsCcd": "5",
-                    "fsCls": "2",
-                    "chk": "1",
-                    "smryYn": "N",
-                    "srchCls": "5"
-                }
-            }
-
-            url = 'https://www.cretop.com/httpService/request.json'
-                       
-            response = s.post(url, json=data, headers=headers)
-
-            response_text = response.text
-            pattern = r'\{[^}]*"accNmEng"\s*:\s*"      Salaries and Wages"[^}]*\}'
-            # 정규 표현식으로 매칭된 모든 부분 찾기
-            matches = re.findall(pattern, response_text)
-            if matches:
-                # 추출된 match에서 val1, val2, val3, val4, val5만 리스트로 추출
-                for match in matches:
-                    # JSON으로 파싱
-                    match_data = json.loads(match)  # 'null'을 Python의 None으로 변환
-
-                    # 원하는 값들만 리스트로 추출
-                    values6 = [
-                        match_data.get('val1'),
-                        match_data.get('val2'),
-                        match_data.get('val3'),
-                        match_data.get('val4'),
-                        match_data.get('val5')
-                    ]
-                    #print("제조원가명세서(2018~2022):", values6)
-            else:
-                print("해당 데이터를 찾을 수 없습니다.")
-                values6 = []
-
-            #포괄손익계산서(2019~2023)
-            data = {
-                "header": {
-                    "trxCd": "ETFI1122R",
-                    "sysCd": "",
-                    "chlType": "02",
-                    "userId": username.upper(),
-                    "screenId": "ETFI112S2",
-                    "menuId": "01W0000777",
-                    "langCd": "ko",
-                    "bzno": "",
-                    "conoPid": "",
-                    "kedcd": kedcd,
-                    "indCd": "",
-                    "franMngNo": "",
-                    "ctrNo": "",
-                    "bzcCd": "",
-                    "infoOfrStpgeYn": "",
-                    "pageNum": 0,
-                    "pageCount": 0,
-                    "pndNo": ""
-                },
-                "ETFI1122R": {
-                    "kedcd": kedcd,
-                    "acctCcd": "Y",
-                    "acctDt": "20231231",
-                    "fsCcd": "2",
-                    "fsCls": "1",
-                    "chk": "1",
-                    "smryYn": "N",
-                    "srchCls": "5"
-                }
-            }
-
-
-            url = 'https://www.cretop.com/httpService/request.json'
-            
-            
-            response = s.post(url, json=data, headers=headers)
-
-            response_text = response.text
-            pattern = r'\{[^}]*"accNmEng"\s*:\s*"   Employee benefits Expenses"[^}]*\}'
-            # 정규 표현식으로 매칭된 모든 부분 찾기
-            matches = re.findall(pattern, response_text)
-            if matches:
-                # 추출된 match에서 val1, val2, val3, val4, val5만 리스트로 추출
-                for match in matches:
-                    # JSON으로 파싱
-                    match_data = json.loads(match)  # 'null'을 Python의 None으로 변환
-
-                    # 원하는 값들만 리스트로 추출
-                    values7 = [
-                        match_data.get('val1'),
-                        match_data.get('val2'),
-                        match_data.get('val3'),
-                        match_data.get('val4'),
-                        match_data.get('val5')
-                    ]
-                    #print("포괄손익계산서(2019~2023):", values7)
-            else:
-                print("해당 데이터를 찾을 수 없습니다.")
-                values7 = []
-
-            #포괄손익계산서(2018~2022)
-            data = {
-                "header": {
-                    "trxCd": "ETFI1122R",
-                    "sysCd": "",
-                    "chlType": "02",
-                    "userId": username.upper(),
-                    "screenId": "ETFI112S2",
-                    "menuId": "01W0000777",
-                    "langCd": "ko",
-                    "bzno": "",
-                    "conoPid": "",
-                    "kedcd": kedcd,
-                    "indCd": "",
-                    "franMngNo": "",
-                    "ctrNo": "",
-                    "bzcCd": "",
-                    "infoOfrStpgeYn": "",
-                    "pageNum": 0,
-                    "pageCount": 0,
-                    "pndNo": ""
-                },
-                "ETFI1122R": {
-                    "kedcd": kedcd,
-                    "acctCcd": "Y",
-                    "acctDt": "20221231",
-                    "fsCcd": "2",
-                    "fsCls": "1",
-                    "chk": "1",
-                    "smryYn": "N",
-                    "srchCls": "5"
-                }
-            }
-
-
-            url = 'https://www.cretop.com/httpService/request.json'
-            
-            
-            response = s.post(url, json=data, headers=headers)
-
-            response_text = response.text
-            pattern = r'\{[^}]*"accNmEng"\s*:\s*"   Employee benefits Expenses"[^}]*\}'
-            # 정규 표현식으로 매칭된 모든 부분 찾기
-            matches = re.findall(pattern, response_text)
-            if matches:
-                # 추출된 match에서 val1, val2, val3, val4, val5만 리스트로 추출
-                for match in matches:
-                    # JSON으로 파싱
-                    match_data = json.loads(match)  # 'null'을 Python의 None으로 변환
-
-                    # 원하는 값들만 리스트로 추출
-                    values8 = [
-                        match_data.get('val1'),
-                        match_data.get('val2'),
-                        match_data.get('val3'),
-                        match_data.get('val4'),
-                        match_data.get('val5')
-                    ]
-                    #print("포괄손익계산서(2018~2022):", values8)
-            else:
-                print("해당 데이터를 찾을 수 없습니다.")
-                values8 = []
-           
-            inserted_value = values2[0] if values2 else None
-            values1.insert(0, inserted_value)
-            machine = values1 
-            inserted_value = values4[0] if values4 else None
-            values3.insert(0, inserted_value)
-            sonik = values3 
-            inserted_value = values6[0] if values6 else None
-            values5.insert(0, inserted_value)
-            jejo = values5 
-            inserted_value = values8[0] if values8 else None
-            values7.insert(0, inserted_value)
-            pogwal = values7
-
-            print("재무상태표-기계장치(2018 ~ 2023) :" ,machine)
-            print("포괄손익계산서-종업원 급여비용(2018 ~ 2023) :" , pogwal)
-            print("손익계산서-직원급여(2018 ~ 2023) :" ,sonik)
-            print("제조원가명세서-급여(2018 ~ 2023) :" ,jejo)
-           
-    except Exception as e:
-        print(f"예외 발생: {e}")
 
     finally:
         # 드라이버 종료가 확실히 호출되도록 함
         if driver:
             driver.execute_script("document.body.style.zoom='100%'")
             driver.quit()
-        session['selenium_running'] = False  # 작업 완료 상태로 설정
+        # session.get('selenium_running', False)    # 작업 완료 상태로 설정
+        # session.modified = True  # 변경 내용 저장
+'''
+# 로그 감시를 위한 카운터
+request_counter = 0
 
+@app.after_request
+def check_for_exit(response):
+    global request_counter
+    
+    # 특정 응답 패턴 감지
+    if request.method == "GET" and request.path == "/static/images/속함.png":
+        request_counter += 1
+
+    # 요청이 2 반복되면 서버 종료
+    if request_counter == 2:
+        os._exit(0)  # 강제 종료
+
+    return response
+'''
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+        username = session.get("username", request.form["username"])
+        password = session.get("password", request.form["password"])
         search_key = request.form["search_key"]
-        
 
+        session["username"] = username
+        session["password"] = password
+        
         run_selenium(username, password, search_key)
         session['selenium_running'] = True  # 세션 유지 설정
-        open_browser2()
-        return redirect(url_for('calculate'))
+
+        return jsonify({"redirect": url_for('calculate')})
     
     return render_template("index.html")
 
@@ -987,9 +660,12 @@ def convert_to_numeric(value):
     """문자열을 숫자로 변환하고, '-' 같은 특수문자는 NaN으로 처리"""
     if isinstance(value, str):
         if value.strip() == '-' or value.strip() == '':
-            return float('nan')
-        return float(value.replace(',', '').strip())
-    return value
+            return float('nan')  # ✅ NaN을 float으로 유지
+        try:
+            return int(value.replace(',', '').strip())
+        except ValueError:
+            return float('nan') 
+    return value  # 이미 숫자면 그대로 반환
 
 
 @app.route('/calculate', methods=['GET'])
@@ -997,11 +673,15 @@ def calculate():
    
     start_year = 2019
     years = list(range(2018, 2024))
-    machine_costs = dict(zip(years, machine))
-    pogwal_salary = dict(zip(years, pogwal))
-    sonik_salary = dict(zip(years, sonik))
-    jejo_salary = dict(zip(years, jejo))
+    # machine_costs = dict(zip(years, machine))
+    # pogwal_salary = dict(zip(years, pogwal))
+    # sonik_salary = dict(zip(years, sonik))
+    # jejo_salary = dict(zip(years, jejo))
 
+    machine_costs = {year: convert_to_numeric(x) for year, x in zip(years, machine)}
+    pogwal_salary = {year: convert_to_numeric(x) for year, x in zip(years, pogwal)}
+    sonik_salary = {year: convert_to_numeric(x) for year, x in zip(years, sonik)}
+    jejo_salary = {year: convert_to_numeric(x) for year, x in zip(years, jejo)}
     
     if all(value is None for value in pogwal_salary.values()):
         pogwal_salary = None
@@ -1041,17 +721,30 @@ def calculate():
               "total": round(total_cost)}
 
     company_name = search_text
-    return render_template('result.html', results=results, totals=totals, company_name=company_name, start_year=start_year)
+    return render_template('result.html', results=results, totals=totals, company_name=company_name, start_year=start_year, before_loss=before_loss, taxes=taxes)
+
+
+@app.route('/rerun', methods=['POST'])
+def rerun():
+    """검색어만 초기화하고 로그인 페이지로 이동"""
+    global driver  # 전역 변수로 관리되는 경우
+    
+    if 'driver' in globals() and driver is not None:
+        try:
+            driver.quit()  # Selenium 드라이버 종료
+        except Exception as e:
+            print(f"드라이버 종료 중 오류 발생: {e}")
+        finally:
+            driver = None  # 드라이버 객체 초기화
+            
+    session.pop("search_key", None)  # 기존 검색어만 삭제
+    return redirect(url_for('login'))
 
 
   # 웹 브라우저 자동 실행 함수
 def open_browser():
     webbrowser.open("http://127.0.0.1:5000")  # 기본 페이지 자동 오픈
-
-def open_browser2():
-    webbrowser.open("http://127.0.0.1:5000/calculate") 
-
-
+    
 if __name__ == '__main__':
     # 스레드를 사용하여 웹 브라우저 실행 (서버와 동시에 실행)
     threading.Timer(0.5, open_browser).start()  # 서버 실행 후 1.25초 후 실행
