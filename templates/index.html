@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>자동화 로그인 및 검색</title>
+    <title>로그인</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -67,10 +67,10 @@
     <img src="{{ url_for('static', filename='images/속함.png') }}" alt="속함 로고">
     <form id="login-form">
         <label for="username">아이디:</label>
-        <input type="text" id="username" name="username" required><br><br>
+        <input type="text" id="username" name="username" value="{{ session.get('username', '') }}" required><br><br>
         
         <label for="password">비밀번호:</label>
-        <input type="password" id="password" name="password" required><br><br>
+        <input type="password" id="password" name="password" value="{{ session.get('password', '') }}" required><br><br>
 
         <label for="search_key">사업자 번호:</label>
         <input type="text" id="search_key" name="search_key" required><br><br>
@@ -85,16 +85,25 @@
             event.preventDefault();
             let formData = new FormData(event.target);
             let statusMessage = document.getElementById("status-message");
-            
+
             statusMessage.innerText = "실행 중...";
-            
-            let response = await fetch("/", {
-                method: "POST",
-                body: formData
-            });
-            
-            let result = await response.json();
-            statusMessage.innerText = result.message;
+
+            try {
+                let response = await fetch("/", {
+                    method: "POST",
+                    body: formData
+                });
+
+                let result = await response.json();
+                
+                if (result.redirect) {
+                    window.location.href = result.redirect;  // "/calculate"로 이동
+                } else {
+                    statusMessage.innerText = result.message || "실행 실패";
+                }
+            } catch (error) {
+                statusMessage.innerText = "오류 발생: " + error;
+            }
         };
     </script>
 </body>
