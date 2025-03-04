@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>비용 계산 결과</title>
+    
+    <title>계산 결과</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -99,8 +100,45 @@
                 <td>{{ "{:,}".format(totals.machine_cost_total * 1000) }}</td>
                 <td>{{ "{:,}".format(totals.salary_adjustment * 1000) }}</td>
                 <td>{{ "{:,}".format(totals.total * 1000) }}</td>
+            </tr>        
+        </table>
+        <table class="totals-table">
+            <tr>
+                <th>연도</th>
+                {% for i in range(5) %}
+                    <th>{{ start_year + i }}</th>
+                {% endfor %}
+            </tr>
+            <tr>
+                <th>법인세비용차감전순손익</th>
+                {% for value in before_loss[1:] %}
+                    <td>{{ "{:,}".format(value * 1000) }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <th>법인세비용</th>
+                {% for value in taxes[1:] %}
+                    <td>{{ "{:,}".format(value * 1000) }}</td>
+                {% endfor %}
             </tr>
         </table>
+        <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+            <form action="{{ url_for('rerun') }}" method="post">
+                <button type="submit" 
+                    style="
+                        font-family: Arial, sans-serif;
+                        padding: 10px 20px;
+                        background-color: #F25C5C; 
+                        color: white;
+                        border: none;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 16px;
+                    ">
+                    재실행
+                </button>
+            </form>
+        </div>
     </div>
 </body>
 </html>
