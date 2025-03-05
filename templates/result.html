@@ -112,13 +112,13 @@
             <tr>
                 <th>법인세비용차감전순손익</th>
                 {% for value in before_loss[1:] %}
-                    <td>{{ "{:,}".format(value * 1000) }}</td>
+                    <td>{{ "{:,}".format((value or 0) * 1000) }}</td>
                 {% endfor %}
             </tr>
             <tr>
                 <th>법인세비용</th>
                 {% for value in taxes[1:] %}
-                    <td>{{ "{:,}".format(value * 1000) }}</td>
+                    <td>{{ "{:,}".format((value or 0) * 1000) }}</td>
                 {% endfor %}
             </tr>
         </table>
