@@ -280,7 +280,10 @@ target_tabs = {
     "손익계산서": {"accNmEng": "      Employee Salaries and Wages", "fsCcd": "2", "fsCls": "2"},
     "법인세비용차감전순손익" :  {"accNmEng": "(Ongoing Business) Income or Loss Before Income Taxes Expenses", "fsCcd": "2", "fsCls": "2"},
     "법인세비용" :  {"accNmEng": "Income Taxes Expenses (For Ongoing Business Income or Loss)", "fsCcd": "2", "fsCls": "2"},
-    "제조원가명세서": {"accNmEng": "      Salaries and Wages", "fsCcd": "5", "fsCls": "2"}
+    "제조원가명세서": {"accNmEng": "      Salaries and Wages", "fsCcd": "5", "fsCls": "2"},
+    "포괄_법인세비용차감전순이익" : {"accNmEng": "Profits(Losses) before Tax", "fsCcd": "2", "fsCls": "1"},
+    "포괄_법인세비용": {"accNmEng": "(Income Tax Expenses)", "fsCcd": "2", "fsCls": "1"}
+    
 }
 
 def get_tabs_values(driver, username, kedcd, session, years):
@@ -310,7 +313,12 @@ def get_tabs_values(driver, username, kedcd, session, years):
         all_tabs.discard("포괄손익계산서")
         values = ["포괄손익계산서"] +  [ None for _ in range(1, 7)]
         values_list.append(values)
-        all_tabs
+        all_tabs.discard("포괄_법인세비용차감전순이익")
+        values = ["포괄_법인세비용차감전순이익"] +  [ None for _ in range(1, 7)]
+        values_list.append(values)
+        all_tabs.discard("포괄_법인세비용")
+        values = ["포괄_법인세비용"] +  [ None for _ in range(1, 7)]
+        values_list.append(values)
     else: 
         all_tabs.discard("손익계산서")
         values = ["손익계산서"] +  [ None for _ in range(1, 7)]
@@ -383,7 +391,6 @@ def get_tabs_values(driver, username, kedcd, session, years):
 
         if matches:
             for match in matches:
-                print(match)
                 match_data = json.loads(match) 
                 values = [tab_name] + [years] + [match_data.get(f'val{i}') for i in range(1, 6)]
                 values_list.append(values)
@@ -560,9 +567,13 @@ def run_selenium(username, password, search_key):
                     jejo = row[1:7] 
                 elif row[0] == "재무상태표":
                     machine = row[1:7]
-                elif row[0] == "법인세비용차감전순손익":
+                elif row[0] == "법인세비용차감전순손익" and not None:
                     before_loss = row[1:7]
-                elif row[0] == "법인세비용":
+                elif row[0] == "포괄_법인세비용차감전순이익" and not None:
+                    before_loss = row[1:7]
+                elif row[0] == "법인세비용" and not None:
+                    taxes = row[1:7]
+                elif row[0] == "포괄_법인세비용" and not None:
                     taxes = row[1:7]
 
 
