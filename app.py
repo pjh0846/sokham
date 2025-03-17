@@ -75,7 +75,7 @@ def login_to_site(driver, username, password, login_button_class="header-login-i
         login_button = WebDriverWait(driver, wait_time).until(
             EC.element_to_be_clickable((By.CLASS_NAME, login_button_class))
         )
-        login_button.click()
+        #login_button.click()
 
         # 사용자 아이디 및 비밀번호 필드 대기
         username_field = WebDriverWait(driver, wait_time).until(
@@ -584,24 +584,7 @@ def run_selenium(username, password, search_key):
             driver.quit()
         # session.get('selenium_running', False)    # 작업 완료 상태로 설정
         # session.modified = True  # 변경 내용 저장
-'''
-# 로그 감시를 위한 카운터
-request_counter = 0
 
-@app.after_request
-def check_for_exit(response):
-    global request_counter
-    
-    # 특정 응답 패턴 감지
-    if request.method == "GET" and request.path == "/static/images/속함.png":
-        request_counter += 1
-
-    # 요청이 2 반복되면 서버 종료
-    if request_counter == 2:
-        os._exit(0)  # 강제 종료
-
-    return response
-'''
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
